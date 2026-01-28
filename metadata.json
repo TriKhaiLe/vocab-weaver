@@ -1,0 +1,7 @@
+{
+  "name": "Vocab Weaver",
+  "description": "An English learning application that helps users memorize vocabulary by generating creative and memorable sentences. Users can input a sentence, select a word to learn, and the app generates a unique context for it. The app also includes features for reviewing saved words and practicing them with fill-in-the-blank exercises.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
