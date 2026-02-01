@@ -27,10 +27,11 @@ const handleApiError = (error: any) => {
   throw new Error(errorMessage || "Failed to connect to AI service. Please try again.");
 };
 
-export const generateMemorableSentence = async (word: string): Promise<string> => {
+export const generateWordUsageExplanation = async (word: string): Promise<string> => {
   try {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
-    const prompt = `Generate a single, rhyming, poetic sentence using the word '${word}'. It must be creative and memorable. Return only the sentence, with no explanatory text, numbering, or other formatting.`;
+    const prompt = `Explain the English word '${word}' in Vietnamese. Include: One or two example sentences showing proper usage in English with Vietnamese translations.
+Keep the explanation concise and short. Do not use markdown formatting or bullet points.`;
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
