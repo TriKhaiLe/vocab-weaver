@@ -35,3 +35,26 @@ export interface AppBackup {
   };
   signature: string;
 }
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: string;
+  user: {
+    id: string;
+    email: string;
+  };
+}
