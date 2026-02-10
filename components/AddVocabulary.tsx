@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   generateWordUsageExplanation,
   getWordLemma,
   translateToVietnamese,
   checkWordSpelling,
 } from "../services/geminiService";
+import { translateText } from "../services/translationService";
 import type { VocabularyEntry } from "../types";
 import { Spinner } from "./Spinner";
 
@@ -32,10 +33,42 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
   );
   const [isTranslatingInput, setIsTranslatingInput] = useState(false);
   const [isTranslatingGenerated, setIsTranslatingGenerated] = useState(false);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const [isCheckingSpelling, setIsCheckingSpelling] = useState(false);
   const [spellingError, setSpellingError] = useState<string | null>(null);
   const [spellingSuggestions, setSpellingSuggestions] = useState<string[]>([]);
+
+  // Real-time translation effect for sentence input
+  useEffect(() => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    if (sentence.trim()) {
+      setIsTranslatingInput(true);
+      debounceTimer.current = setTimeout(async () => {
+        try {
+          const translation = await translateText(sentence, "vi", "en");
+          setTranslatedInput(translation);
+        } catch (err) {
+          console.error("Real-time translation error:", err);
+          setTranslatedInput(null);
+        } finally {
+          setIsTranslatingInput(false);
+        }
+      }, 800); // Debounce delay of 800ms
+    } else {
+      setTranslatedInput(null);
+      setIsTranslatingInput(false);
+    }
+
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, [sentence]);
 
   const words = useMemo(
     () => sentence.split(/\s+/).filter(Boolean),
@@ -162,20 +195,6 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
     }
   };
 
-  const handleTranslateInput = async () => {
-    if (!sentence) return;
-    setIsTranslatingInput(true);
-    setError(null);
-    try {
-      const translation = await translateToVietnamese(sentence);
-      setTranslatedInput(translation);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Translation failed.");
-    } finally {
-      setIsTranslatingInput(false);
-    }
-  };
-
   const handleTranslateGenerated = async () => {
     if (!generatedSentence) return;
     setIsTranslatingGenerated(true);
@@ -190,23 +209,6 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
     }
   };
 
-  const TranslateIcon = () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-5 w-5"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.5}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M10.5 21l-5.25-5.25m0 0L10.5 10.5m-5.25 5.25h15m-15 0l5.25 5.25M3.75 4.5h15m-15 0l5.25 5.25M3.75 4.5l5.25-5.25"
-      />
-    </svg>
-  );
-
   return (
     <div className="space-y-8 animate-slide-up">
       {error && (
@@ -215,29 +217,18 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
 
       {/* Step 1: Input Sentence */}
       <div className="p-6 bg-dark-card rounded-lg border border-dark-border">
-        <div className="flex justify-between items-center mb-3">
-          <label
-            htmlFor="sentence-input"
-            className="block text-lg font-semibold text-brand-primary"
-          >
-            Step 1: Enter a sentence
-          </label>
-          <button
-            onClick={handleTranslateInput}
-            disabled={!sentence || isTranslatingInput}
-            className="flex items-center gap-2 px-3 py-1 text-sm bg-dark-border hover:bg-brand-secondary/50 rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isTranslatingInput ? <Spinner /> : <TranslateIcon />}
-            <span>Translate</span>
-          </button>
-        </div>
+        <label
+          htmlFor="sentence-input"
+          className="block text-lg font-semibold text-brand-primary mb-3"
+        >
+          Step 1: Enter a sentence
+        </label>
         <div className="relative">
           <textarea
             id="sentence-input"
             value={sentence}
             onChange={(e) => {
               setSentence(e.target.value);
-              setTranslatedInput(null);
               setSelectedWord(null);
               setSelectedWordIndex(null);
               setSpellingError(null);
@@ -259,10 +250,20 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
             {sentence.length} / {characterLimit}
           </div>
         </div>
-        {translatedInput && (
+        {sentence && (
           <div className="mt-4 p-3 bg-dark-bg rounded-md border border-dark-border animate-fade-in">
-            <p className="text-xs text-medium-text">Vietnamese Translation:</p>
-            <p className="text-light-text italic">{translatedInput}</p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-xs text-medium-text">
+                Real-time Vietnamese Translation:
+              </p>
+              {isTranslatingInput && <Spinner />}
+            </div>
+            {translatedInput && !isTranslatingInput && (
+              <p className="text-light-text italic">{translatedInput}</p>
+            )}
+            {!translatedInput && !isTranslatingInput && (
+              <p className="text-medium-text text-sm">Translating...</p>
+            )}
           </div>
         )}
       </div>
@@ -366,7 +367,24 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
               disabled={!generatedSentence || isTranslatingGenerated}
               className="flex items-center gap-2 px-3 py-1 text-sm bg-dark-border hover:bg-brand-secondary/50 rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isTranslatingGenerated ? <Spinner /> : <TranslateIcon />}
+              {isTranslatingGenerated ? (
+                <Spinner />
+              ) : (
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M10.5 21l-5.25-5.25m0 0L10.5 10.5m-5.25 5.25h15m-15 0l5.25 5.25M3.75 4.5h15m-15 0l5.25 5.25M3.75 4.5l5.25-5.25"
+                  />
+                </svg>
+              )}
               <span>Translate</span>
             </button>
           </div>
