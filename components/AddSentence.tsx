@@ -12,9 +12,17 @@ export const AddSentence: React.FC<AddSentenceProps> = ({
 }) => {
   const [vietnameseSentence, setVietnameseSentence] = useState("");
   const [guidance, setGuidance] = useState("");
-  const [englishSentence, setEnglishSentence] = useState<string | null>(null);
+  const [englishSuggestions, setEnglishSuggestions] = useState<string[]>([]);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState<
+    number | null
+  >(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedSentence =
+    selectedSuggestionIndex !== null
+      ? englishSuggestions[selectedSuggestionIndex]
+      : null;
 
   const handleGenerate = async () => {
     if (!vietnameseSentence) {
@@ -23,10 +31,17 @@ export const AddSentence: React.FC<AddSentenceProps> = ({
     }
     setIsLoading(true);
     setError(null);
-    setEnglishSentence(null);
+    setEnglishSuggestions([]);
+    setSelectedSuggestionIndex(null);
     try {
-      const result = await suggestEnglishSentence(vietnameseSentence, guidance);
-      setEnglishSentence(result);
+      const results = await suggestEnglishSentence(
+        vietnameseSentence,
+        guidance,
+      );
+      setEnglishSuggestions(results);
+      if (results.length === 1) {
+        setSelectedSuggestionIndex(0);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unknown error occurred.",
@@ -39,14 +54,15 @@ export const AddSentence: React.FC<AddSentenceProps> = ({
   const resetAllState = () => {
     setVietnameseSentence("");
     setGuidance("");
-    setEnglishSentence(null);
+    setEnglishSuggestions([]);
+    setSelectedSuggestionIndex(null);
     setError(null);
   };
 
   const handleSave = async () => {
-    if (!vietnameseSentence || !englishSentence) {
+    if (!vietnameseSentence || selectedSentence === null) {
       setError(
-        "Missing information. Please generate a sentence before saving.",
+        "Missing information. Please generate and select a sentence before saving.",
       );
       return;
     }
@@ -56,8 +72,8 @@ export const AddSentence: React.FC<AddSentenceProps> = ({
     try {
       const newEntry: Omit<SentenceEntry, "id"> = {
         vietnameseSentence,
-        englishSentence,
-        proficiency: 1, // Initialize proficiency at 1
+        englishSentence: selectedSentence,
+        proficiency: 1,
       };
       addSentenceEntry(newEntry);
       resetAllState();
@@ -123,21 +139,33 @@ export const AddSentence: React.FC<AddSentenceProps> = ({
       </div>
 
       {/* Result Display */}
-      {isLoading && !englishSentence && (
+      {isLoading && englishSuggestions.length === 0 && (
         <div className="flex justify-center items-center p-6 text-medium-text">
           <Spinner />
           <span className="ml-2">Generating...</span>
         </div>
       )}
 
-      {englishSentence && (
+      {englishSuggestions.length > 0 && (
         <div className="p-6 bg-dark-card rounded-lg border border-dark-border animate-fade-in">
           <h3 className="text-lg font-semibold text-brand-primary mb-3">
-            Suggested Translation:
+            Suggested Translations (pick one):
           </h3>
-          <blockquote className="text-xl italic p-4 bg-dark-bg border-l-4 border-brand-primary rounded-r-lg">
-            {englishSentence}
-          </blockquote>
+          <div className="space-y-3">
+            {englishSuggestions.map((suggestion, index) => (
+              <button
+                key={index}
+                onClick={() => setSelectedSuggestionIndex(index)}
+                className={`w-full text-left text-base italic p-4 rounded-lg border-l-4 transition duration-200 ${
+                  selectedSuggestionIndex === index
+                    ? "bg-brand-primary/20 border-brand-primary text-white"
+                    : "bg-dark-bg border-dark-border hover:border-brand-secondary hover:bg-dark-border/50 text-light-text"
+                }`}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
 
           <div className="mt-6 flex flex-col md:flex-row gap-4">
             <button
@@ -149,8 +177,8 @@ export const AddSentence: React.FC<AddSentenceProps> = ({
             </button>
             <button
               onClick={handleSave}
-              disabled={isLoading}
-              className="flex-1 bg-green-600 hover:bg-green-500 disabled:bg-green-800 text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center justify-center"
+              disabled={isLoading || selectedSuggestionIndex === null}
+              className="flex-1 bg-green-600 hover:bg-green-500 disabled:bg-green-800 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center justify-center"
             >
               {isLoading ? <Spinner /> : "Looks good, Save!"}
             </button>

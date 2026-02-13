@@ -27,10 +27,10 @@ const handleApiError = (error: any) => {
   throw new Error(errorMessage || "Failed to connect to AI service. Please try again.");
 };
 
-export const generateWordUsageExplanation = async (word: string): Promise<string> => {
+export const generateWordUsageExplanation = async (word: string, inputSentence?: string): Promise<string> => {
   try {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
-    const prompt = `Explain the English word '${word}' in Vietnamese. Include: One or two example sentences showing proper usage in English with Vietnamese translations.
+    const prompt = `Explain the English word '${word}' in Vietnamese. Then explain it in the context of this sentence: "${inputSentence}". Include: One or two example sentences showing proper usage in English with Vietnamese translations.
 Keep the explanation concise and short. Do not use markdown formatting or bullet points.`;
     
     const response = await ai.models.generateContent({
@@ -106,19 +106,27 @@ export const checkWordSpelling = async (word: string): Promise<{ isValid: boolea
   }
 };
 
-export const suggestEnglishSentence = async (vietnameseSentence: string, guidance: string): Promise<string> => {
+export const suggestEnglishSentence = async (vietnameseSentence: string, guidance: string): Promise<string[]> => {
     try {
         const ai = new GoogleGenAI({ apiKey: getApiKey() });
-        const prompt = `Translate the following Vietnamese sentence into English: "${vietnameseSentence}".
-        ${guidance ? `Follow these instructions for the translation: "${guidance}".` : 'Provide a natural and common translation.'}
-        Respond with ONLY the English sentence. Do not include any introductory text, explanations, or quotes.`;
+        const prompt = `Translate the following Vietnamese sentence into 3 different English variations: "${vietnameseSentence}".
+        ${guidance ? `Follow these instructions for the translations: "${guidance}".` : 'Provide natural and common translations.'}
+        Each variation should have a slightly different tone or word choice.
+        Respond with ONLY the 3 English sentences, one per line, numbered like:
+1. ...
+2. ...
+3. ...
+        Do not include any introductory text, explanations, or quotes.`;
 
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: prompt,
         });
 
-        return response.text.trim();
+        const lines = response.text.trim().split('\n')
+            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+            .filter(Boolean);
+        return lines.length > 0 ? lines : [response.text.trim()];
     } catch (error) {
         return handleApiError(error);
     }

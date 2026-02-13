@@ -135,7 +135,7 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
     setGeneratedSentence(null);
     setTranslatedGenerated(null);
     try {
-      const result = await generateWordUsageExplanation(selectedWord);
+      const result = await generateWordUsageExplanation(selectedWord, sentence);
       setGeneratedSentence(result);
     } catch (err) {
       setError(
