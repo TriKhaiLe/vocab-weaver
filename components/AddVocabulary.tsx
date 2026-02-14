@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   generateWordUsageExplanation,
   getWordLemma,
-  translateToVietnamese,
   checkWordSpelling,
 } from "../services/geminiService";
 import { translateText } from "../services/translationService";
@@ -28,11 +27,7 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const [translatedInput, setTranslatedInput] = useState<string | null>(null);
-  const [translatedGenerated, setTranslatedGenerated] = useState<string | null>(
-    null,
-  );
   const [isTranslatingInput, setIsTranslatingInput] = useState(false);
-  const [isTranslatingGenerated, setIsTranslatingGenerated] = useState(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const [isCheckingSpelling, setIsCheckingSpelling] = useState(false);
@@ -81,7 +76,6 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
     setSelectedWord(cleanedWord);
     setSelectedWordIndex(index);
     setGeneratedSentence(null);
-    setTranslatedGenerated(null);
     setSpellingError(null);
     setSpellingSuggestions([]);
 
@@ -133,7 +127,6 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
     setIsLoading(true);
     setError(null);
     setGeneratedSentence(null);
-    setTranslatedGenerated(null);
     try {
       const result = await generateWordUsageExplanation(selectedWord, sentence);
       setGeneratedSentence(result);
@@ -152,7 +145,6 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
     setSelectedWordIndex(null);
     setGeneratedSentence(null);
     setTranslatedInput(null);
-    setTranslatedGenerated(null);
     setSpellingError(null);
     setSpellingSuggestions([]);
   };
@@ -192,20 +184,6 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
       );
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleTranslateGenerated = async () => {
-    if (!generatedSentence) return;
-    setIsTranslatingGenerated(true);
-    setError(null);
-    try {
-      const translation = await translateToVietnamese(generatedSentence);
-      setTranslatedGenerated(translation);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Translation failed.");
-    } finally {
-      setIsTranslatingGenerated(false);
     }
   };
 
@@ -358,49 +336,13 @@ export const AddVocabulary: React.FC<AddVocabularyProps> = ({
 
       {generatedSentence && (
         <div className="p-6 bg-dark-card rounded-lg border border-dark-border animate-fade-in">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold text-brand-primary">
-              Usage Explanation:
-            </h3>
-            <button
-              onClick={handleTranslateGenerated}
-              disabled={!generatedSentence || isTranslatingGenerated}
-              className="flex items-center gap-2 px-3 py-1 text-sm bg-dark-border hover:bg-brand-secondary/50 rounded-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isTranslatingGenerated ? (
-                <Spinner />
-              ) : (
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.5}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M10.5 21l-5.25-5.25m0 0L10.5 10.5m-5.25 5.25h15m-15 0l5.25 5.25M3.75 4.5h15m-15 0l5.25 5.25M3.75 4.5l5.25-5.25"
-                  />
-                </svg>
-              )}
-              <span>Translate</span>
-            </button>
-          </div>
+          <h3 className="text-lg font-semibold text-brand-primary mb-3">
+            Usage Explanation:
+          </h3>
 
           <div className="text-base p-4 bg-dark-bg border-l-4 border-brand-primary rounded-r-lg leading-relaxed">
             {generatedSentence}
           </div>
-
-          {translatedGenerated && (
-            <div className="mt-4 p-3 bg-dark-bg rounded-md border border-dark-border animate-fade-in">
-              <p className="text-xs text-medium-text">
-                Vietnamese Translation:
-              </p>
-              <p className="text-light-text italic">{translatedGenerated}</p>
-            </div>
-          )}
 
           <div className="mt-6 flex flex-col md:flex-row gap-4">
             <button
